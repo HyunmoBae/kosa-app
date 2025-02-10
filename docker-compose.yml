@@ -1,0 +1,149 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    env_file:
+      - ./backend/mongodb/.env
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME:-admin}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-admin123}
+    networks:
+      - app-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 10s
+      retries: 5
+      start_period: 40s
+
+  gateway-service:
+    build:
+      context: ./backend/gateway-service
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/gateway-service/.env
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - TODO_SERVICE_URL=http://todo-service:3000
+      - BOARD_SERVICE_URL=http://board-service:3000
+      - FILE_SERVICE_URL=http://file-service:3000
+      - CORS_ORIGIN=http://localhost
+    volumes:
+      - ./backend/gateway-service/logs:/app/logs
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  todo-service:
+    build:
+      context: ./backend/todo-service
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/todo-service/.env
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - MONGODB_URI=mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-admin123}@mongodb:27017/todo_db?authSource=admin
+      - DB_NAME=todo_db
+      - API_PREFIX=/api/todos
+    volumes:
+      - ./backend/todo-service/logs:/app/logs
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  board-service:
+    build:
+      context: ./backend/board-service
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/board-service/.env
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - MONGODB_URI=mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-admin123}@mongodb:27017/board_db?authSource=admin
+      - DB_NAME=board_db
+      - API_PREFIX=/api/boards
+    volumes:
+      - ./backend/board-service/logs:/app/logs
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  file-service:
+    build:
+      context: ./backend/file-service
+      dockerfile: Dockerfile
+    env_file:
+      - ./backend/file-service/.env
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - MONGODB_URI=mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-admin123}@mongodb:27017/file_db?authSource=admin
+      - DB_NAME=file_db
+      - UPLOAD_DIR=/app/uploads
+      - API_PREFIX=/api/files
+    volumes:
+      - ./backend/file-service/uploads:/app/uploads
+      - ./backend/file-service/logs:/app/logs
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      mongodb:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    environment:
+      - REACT_APP_API_URL=http://localhost:3000/api
+    volumes:
+      - ./frontend/build:/usr/share/nginx/html
+    networks:
+      - app-network
+    depends_on:
+      - gateway-service
+
+networks:
+  app-network:
+    driver: bridge
+
+volumes:
+  mongodb_data: 

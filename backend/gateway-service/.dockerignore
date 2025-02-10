@@ -1,0 +1,63 @@
+# 버전 관리
+.git
+.gitignore
+.gitattributes
+
+# 의존성
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# 개발 환경 설정
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE 설정
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+
+# 시스템 파일
+.DS_Store
+Thumbs.db
+*.tmp
+*.temp
+
+# 로그 파일
+*.log
+npm-debug.log*
+
+# 테스트 파일
+coverage/
+.nyc_output/
+__tests__/
+__mocks__/
+*.test.js
+*.spec.js
+
+# 문서
+docs/
+README.md
+CHANGELOG.md
+LICENSE
+*.md
+
+# Docker 관련
+Dockerfile*
+docker-compose*
+
+# 기타
+.eslintrc*
+.prettierrc*
+.editorconfig
+nodemon.json
+jest.config.js
+babel.config.js
+tsconfig.json 

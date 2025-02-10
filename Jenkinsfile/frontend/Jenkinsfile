@@ -1,0 +1,103 @@
+// 프론트엔드 서비스 배포를 위한 Jenkins 파이프라인
+pipeline {
+    // 모든 Jenkins 에이전트에서 실행 가능
+    agent any
+    
+    // 파이프라인 실행 시 사용자 입력 파라미터
+    parameters {
+        choice(name: 'DEPLOY_ENV', choices: ['dev', 'staging', 'prod'], description: '배포 환경 선택')
+    }
+    
+    // 환경 변수 설정
+    environment {
+        DOCKER_REGISTRY = "192.168.0.x:5000"  // 도커 레지스트리 주소
+        SERVICE_NAME = "frontend"  // 서비스 이름
+        DOCKER_IMAGE = "${DOCKER_REGISTRY}/${SERVICE_NAME}"  // 도커 이미지 이름
+        K8S_CONFIG = 'k8s-config'  // 쿠버네티스 설정 크리덴셜 ID
+        NAMESPACE = "${params.DEPLOY_ENV}"  // 쿠버네티스 네임스페이스
+    }
+    
+    // 파이프라인 단계
+    stages {
+        // 소스 코드 체크아웃
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        // 의존성 설치
+        stage('Install Dependencies') {
+            steps {
+                dir('frontend') {
+                    sh 'npm ci'  // 패키지 설치 (clean install)
+                }
+            }
+        }
+        
+        // 프론트엔드 빌드
+        stage('Build') {
+            steps {
+                dir('frontend') {
+                    sh 'npm run build'  // 프로덕션 빌드
+                }
+            }
+        }
+        
+        // 도커 이미지 빌드 및 푸시
+        stage('Docker Build & Push') {
+            steps {
+                dir('frontend') {
+                    script {
+                        docker.withRegistry("https://${DOCKER_REGISTRY}", 'docker-registry-credentials') {
+                            def app = docker.build("${DOCKER_IMAGE}:${BUILD_NUMBER}")
+                            app.push()  // 현재 빌드 번호로 태그
+                            app.push('latest')  // latest 태그
+                        }
+                    }
+                }
+            }
+        }
+        
+        // ConfigMap과 Secret 배포
+        stage('Deploy ConfigMap and Secret') {
+            steps {
+                withKubeConfig([credentialsId: K8S_CONFIG]) {
+                    sh """
+                        kubectl apply -f k8s/config/${NAMESPACE}/configmap.yaml
+                        kubectl apply -f k8s/config/${NAMESPACE}/secret.yaml
+                    """
+                }
+            }
+        }
+        
+        // 쿠버네티스 배포
+        stage('Deploy to K8s') {
+            steps {
+                withKubeConfig([credentialsId: K8S_CONFIG]) {
+                    sh """
+                        kubectl set image deployment/${SERVICE_NAME} \
+                        ${SERVICE_NAME}=${DOCKER_IMAGE}:${BUILD_NUMBER} \
+                        -n ${NAMESPACE}
+                    """
+                }
+            }
+        }
+    }
+    
+    // 파이프라인 완료 후 처리
+    post {
+        // 항상 실행
+        always {
+            cleanWs()  // 작업 공간 정리
+        }
+        // 성공 시 슬랙 알림
+        success {
+            slackSend(color: 'good', message: "배포 성공: ${env.JOB_NAME} #${env.BUILD_NUMBER}")
+        }
+        // 실패 시 슬랙 알림
+        failure {
+            slackSend(color: 'danger', message: "배포 실패: ${env.JOB_NAME} #${env.BUILD_NUMBER}")
+        }
+    }
+} 

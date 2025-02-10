@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: dev
+data:
+  NODE_ENV: "development"
+  API_URL: "http://api-gateway:8080"
+  LOG_LEVEL: "debug"
+  STORAGE_URL: "http://192.168.0.137:9000"
+  DB_HOST: "192.168.0.138"
+  DB_PORT: "5432"
+  DB_NAME: "taskbox_dev"
+  REDIS_HOST: "redis-service"
+  REDIS_PORT: "6379"
+  CORS_ORIGIN: "*" 

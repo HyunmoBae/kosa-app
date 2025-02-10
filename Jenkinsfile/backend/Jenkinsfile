@@ -1,0 +1,174 @@
+// 백엔드 서비스 배포를 위한 Jenkins 파이프라인
+pipeline {
+    // 모든 Jenkins 에이전트에서 실행 가능
+    agent any
+    
+    // 파이프라인 실행 시 사용자 입력 파라미터
+    parameters {
+        choice(name: 'DEPLOY_ENV', choices: ['dev', 'staging', 'prod'], description: '배포 환경 선택')
+        choice(name: 'SERVICE_NAME', 
+            choices: ['todo-service', 'board-service', 'file-service'], 
+            description: '배포할 서비스 선택')
+    }
+    
+    // 환경 변수 설정
+    environment {
+        // Jenkins Credentials에서 가져오는 민감한 정보
+        DOCKER_CREDENTIALS = credentials('docker-registry-credentials')
+        
+        // properties 파일에서 환경별 설정 로드
+        ENV_PROPS = loadEnvironmentProperties("${params.DEPLOY_ENV}")
+        
+        // 환경변수 설정
+        DOCKER_REGISTRY = "${ENV_PROPS.DOCKER_REGISTRY}"
+        DOCKER_IMAGE = "${ENV_PROPS.DOCKER_REGISTRY}/${params.SERVICE_NAME}"
+        K8S_CONFIG = "${ENV_PROPS.K8S_CONFIG}"
+        NAMESPACE = "${params.DEPLOY_ENV}"
+        SLACK_CHANNEL = "${ENV_PROPS.SLACK_CHANNEL}"
+    }
+    
+    // properties 파일 로드를 위한 메소드
+    def loadEnvironmentProperties(String env) {
+        def props = readProperties file: "env/${env}.properties"
+        return props
+    }
+    
+    // 파이프라인 단계
+    stages {
+        // 환경 정보 출력
+        stage('Environment Info') {
+            steps {
+                echo "배포 환경: ${params.DEPLOY_ENV}"
+                echo "Docker Registry: ${DOCKER_REGISTRY}"
+                echo "Kubernetes Config: ${K8S_CONFIG}"
+                echo "Slack Channel: ${SLACK_CHANNEL}"
+            }
+        }
+        
+        // 소스 코드 체크아웃
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        // 의존성 설치
+        stage('Install Dependencies') {
+            steps {
+                dir("backend/${params.SERVICE_NAME}") {
+                    sh 'npm ci'  // 패키지 설치 (clean install)
+                }
+            }
+        }
+        
+        // 테스트 실행
+        stage('Test') {
+            steps {
+                dir("backend/${params.SERVICE_NAME}") {
+                    sh 'npm test'
+                }
+            }
+        }
+        
+        // 도커 이미지 빌드 및 푸시
+        stage('Docker Build & Push') {
+            steps {
+                dir("backend/${params.SERVICE_NAME}") {
+                    script {
+                        docker.withRegistry("https://${DOCKER_REGISTRY}", 'docker-registry-credentials') {
+                            def app = docker.build("${DOCKER_IMAGE}:${BUILD_NUMBER}")
+                            app.push()  // 현재 빌드 번호로 태그
+                            app.push('latest')  // latest 태그
+                        }
+                    }
+                }
+            }
+        }
+        
+        // ConfigMap과 Secret 배포
+        stage('Deploy ConfigMap and Secret') {
+            steps {
+                withKubeConfig([credentialsId: K8S_CONFIG]) {
+                    sh """
+                        kubectl apply -f k8s/config/${NAMESPACE}/configmap.yaml
+                        kubectl apply -f k8s/config/${NAMESPACE}/secret.yaml
+                    """
+                }
+            }
+        }
+        
+        // 쿠버네티스 배포
+        stage('Deploy to K8s') {
+            steps {
+                withKubeConfig([credentialsId: K8S_CONFIG]) {
+                    script {
+                        try {
+                            // 새 버전 배포
+                            sh """
+                                kubectl set image deployment/${params.SERVICE_NAME} \
+                                ${params.SERVICE_NAME}=${DOCKER_IMAGE}:${BUILD_NUMBER} \
+                                -n ${NAMESPACE}
+                                
+                                kubectl apply -f k8s/deployments/hpa.yaml
+                            """
+                            
+                            // 배포 상태 확인
+                            sh """
+                                # 롤아웃 상태 체크 (5분 타임아웃)
+                                kubectl rollout status deployment/${params.SERVICE_NAME} -n ${NAMESPACE} --timeout=300s
+                            """
+                        } catch (Exception e) {
+                            echo "배포 실패! 자동 롤백을 시작합니다..."
+                            sh """
+                                kubectl rollout undo deployment/${params.SERVICE_NAME} -n ${NAMESPACE}
+                                kubectl rollout status deployment/${params.SERVICE_NAME} -n ${NAMESPACE} --timeout=300s
+                            """
+                            error "배포 실패로 인한 롤백 완료"
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 서비스 헬스 체크
+        stage('Health Check') {
+            steps {
+                script {
+                    try {
+                        sleep 30  // 서비스가 완전히 시작될 때까지 대기
+                        sh """
+                            # 헬스체크 엔드포인트 호출
+                            curl -f http://\$(kubectl get svc ${params.SERVICE_NAME} -n ${NAMESPACE} -o jsonpath='{.spec.clusterIP}'):3000/health
+                        """
+                    } catch (Exception e) {
+                        error "헬스체크 실패! 롤백을 시작합니다..."
+                    }
+                }
+            }
+        }
+    }
+    
+    // 파이프라인 완료 후 처리
+    post {
+        // 항상 실행
+        always {
+            cleanWs()  // 작업 공간 정리
+        }
+        // 성공 시 슬랙 알림
+        success {
+            slackSend(
+                channel: "${SLACK_CHANNEL}",
+                color: 'good', 
+                message: "배포 성공: ${params.SERVICE_NAME} #${env.BUILD_NUMBER}"
+            )
+        }
+        // 실패 시 슬랙 알림
+        failure {
+            slackSend(
+                channel: "${SLACK_CHANNEL}",
+                color: 'danger', 
+                message: "배포 실패: ${params.SERVICE_NAME} #${env.BUILD_NUMBER}"
+            )
+        }
+    }
+} 
