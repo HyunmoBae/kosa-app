@@ -91,6 +91,7 @@ const proxyOptions = {
     proxyReqOpts.headers['x-forwarded-for'] = srcReq.ip;
     proxyReqOpts.headers['x-forwarded-proto'] = srcReq.protocol;
     proxyReqOpts.headers['x-forwarded-host'] = srcReq.get('host');
+    proxyReqOpts.headers['Content-Type'] = 'application/json';
     return proxyReqOpts;
   },
   proxyErrorHandler: handleProxyError,
