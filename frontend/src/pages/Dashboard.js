@@ -10,6 +10,7 @@ import {
   ExclamationIcon,
 } from '@heroicons/react/outline';
 import axios from 'axios';
+import api from '../api/axios';  // 기존 axios 대신 API Gateway를 사용하도록 변경
 
 function Dashboard() {
   const [stats, setStats] = useState({
@@ -37,9 +38,9 @@ function Dashboard() {
   const fetchStats = async () => {
     try {
       const [todosRes, boardsRes, filesRes] = await Promise.all([
-        axios.get('/api/todos'),
-        axios.get('/api/boards'),
-        axios.get('/api/files'),
+        api.get('/todos'),  // 변경된 API 호출 방식
+        api.get('/boards'),
+        api.get('/files'),
       ]);
 
       const todos = todosRes.data;

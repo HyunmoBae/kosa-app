@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Axios 인스턴스 생성
 const api = axios.create({
-  baseURL: process.env.REACT_APP_API_URL || 'http://gateway-service:3000/api',
+  baseURL: process.env.REACT_APP_API_URL,  // 기본값 제거, 항상 .env를 사용하도록 수정
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',

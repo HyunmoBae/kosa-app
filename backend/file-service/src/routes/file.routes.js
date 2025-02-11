@@ -7,7 +7,11 @@ const fileController = require('../controllers/file.controller');
 // 파일 업로드 설정
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, process.env.FILE_STORAGE_PATH || 'uploads/');
+    const uploadPath = process.env.UPLOAD_DIR || "/mnt/nfs/uploads"; // NFS 경로로 변경
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true }); // 디렉토리가 없으면 생성
+    }
+    cb(null, uploadPath);
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);

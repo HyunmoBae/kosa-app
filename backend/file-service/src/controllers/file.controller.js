@@ -5,17 +5,19 @@ const fs = require('fs').promises;
 exports.uploadFile = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ message: '파일이 없습니다.' });
+      return res.status(400).json({ message: "파일이 없습니다." });
     }
+
+    const uploadPath = process.env.UPLOAD_DIR || "/mnt/nfs/uploads"; // NFS 경로 사용
 
     const file = new File({
       filename: req.file.filename,
       originalname: req.file.originalname,
       mimetype: req.file.mimetype,
       size: req.file.size,
-      path: req.file.path,
-      category: req.body.category || '기타',
-      description: req.body.description
+      path: path.join(uploadPath, req.file.filename), // NFS 경로에서 저장
+      category: req.body.category || "기타",
+      description: req.body.description,
     });
 
     const savedFile = await file.save();
