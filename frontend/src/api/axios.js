@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Axios 인스턴스 생성
 const api = axios.create({
-  baseURL: "http://api-gateway:3000/api",
+  baseURL: process.env.REACT_APP_API_URL,
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
