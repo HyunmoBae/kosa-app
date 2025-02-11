@@ -15,13 +15,14 @@ app.use(cors());
 app.use(express.json());
 
 // 환경 변수 설정
-const PORT = process.env.PORT || 3002;
-const MONGO_HOST = process.env.MONGO_HOST || "192.168.0.141";
-const MONGO_PORT = process.env.MONGO_PORT || "27017";
-const MONGO_DB = process.env.MONGO_DB || "file-service";
-const MONGODB_URI = `mongodb://${MONGO_HOST}:${MONGO_PORT}/${MONGO_DB}`;
-
-const FILE_STORAGE_PATH = process.env.UPLOAD_DIR || "/mnt/nfs/uploads"; // NFS 경로로 변경
+const PORT = process.env.PORT;
+const MONGO_HOST = process.env.MONGO_HOST;
+const MONGO_PORT = process.env.MONGO_PORT;
+const MONGO_DB = process.env.MONGO_DB;
+const DB_USER = process.env.DB_USER;
+const DB_PASS = process.env.DB_PASS;
+const MONGODB_URI = `mongodb://${DB_USER}:${DB_PASS}@${MONGO_HOST}:${MONGO_PORT}/${MONGO_DB}?authSource=${MONGO_DB}`;
+const FILE_STORAGE_PATH = process.env.UPLOAD_DIR; // NFS 경로로 변경
 
 
 if (!MONGODB_URI) {
