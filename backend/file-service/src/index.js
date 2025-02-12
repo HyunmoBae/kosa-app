@@ -9,6 +9,12 @@ require("dotenv").config(); // .env 파일 로드
 
 const app = express();
 
+// 404 에러 처리 (HTML 반환 방지)
+app.use((req, res, next) => {
+  res.status(404).json({ message: 'API 엔드포인트를 찾을 수 없습니다.' });
+});
+
+
 // 미들웨어 설정
 app.use(helmet());
 app.use(cors());
