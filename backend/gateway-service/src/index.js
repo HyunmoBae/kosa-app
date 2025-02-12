@@ -71,9 +71,9 @@ app.use((req, res, next) => {
 });
 
 // 프록시 설정
-const TODO_SERVICE = process.env.TODO_SERVICE_URL || 'http://todo:3000';
-const BOARD_SERVICE = process.env.BOARD_SERVICE_URL || 'http://board:3000';
-const FILE_SERVICE = process.env.FILE_SERVICE_URL || 'http://file:3000';
+const TODO_SERVICE = process.env.TODO_SERVICE || 'http://todo:3000';
+const BOARD_SERVICE = process.env.BOARD_SERVICE || 'http://board:3000';
+const FILE_SERVICE = process.env.FILE_SERVICE || 'http://file:3000';
 
 // 프록시 에러 핸들러
 const handleProxyError = (err, res, next) => {
@@ -91,7 +91,6 @@ const proxyOptions = {
     proxyReqOpts.headers['x-forwarded-for'] = srcReq.ip;
     proxyReqOpts.headers['x-forwarded-proto'] = srcReq.protocol;
     proxyReqOpts.headers['x-forwarded-host'] = srcReq.get('host');
-    proxyReqOpts.headers['Content-Type'] = 'application/json';
     return proxyReqOpts;
   },
   proxyErrorHandler: handleProxyError,

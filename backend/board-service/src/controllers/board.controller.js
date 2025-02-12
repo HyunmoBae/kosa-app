@@ -23,7 +23,7 @@ exports.getAllPosts = async (req, res) => {
     }
     
     const boards = await Board.find(query).sort({ createdAt: -1 });
-    res.setHeader('Content-Type', 'application/json');
+
     res.json(boards);
   } catch (error) {
     res.status(500).json({ message: error.message });
