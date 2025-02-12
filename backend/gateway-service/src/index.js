@@ -70,26 +70,10 @@ app.use((req, res, next) => {
   next();
 });
 
-
-// 프록시 설정 ( 없을 경우 자동 설정을 위해 || 사용)
-const TODO_SERVICE = process.env.TODO_SERVICE || "http://todo:3000";
-const BOARD_SERVICE = process.env.BOARD_SERVICE || "http://board:3000";
-const FILE_SERVICE = process.env.FILE_SERVICE || "http://file:3000";
-
-// 프록시 요청 로그 추가 (디버깅용)
-const logProxyRequest = (serviceName, url) => {
-  console.log(`${serviceName} 서비스에 요청: ${url}`);
-}
-
-// 백엔드 응답이 HTML이면 JSON으로 변환
-const modifyResponse = (proxyRes, proxyResData, req, res) => {
-  try {
-    const data = JSON.parse(proxyResData.toString('utf8'));
-    return JSON.stringify(data);
-  } catch (error) {
-    return JSON.stringify({ message: '응답이 JSON 형식이 아닙니다.' });
-  }
-};
+// 프록시 설정
+const TODO_SERVICE = process.env.TODO_SERVICE_URL || 'http://todo:3000';
+const BOARD_SERVICE = process.env.BOARD_SERVICE_URL || 'http://board:3000';
+const FILE_SERVICE = process.env.FILE_SERVICE_URL || 'http://file:3000';
 
 // 프록시 에러 핸들러
 const handleProxyError = (err, res, next) => {
@@ -107,13 +91,13 @@ const proxyOptions = {
     proxyReqOpts.headers['x-forwarded-for'] = srcReq.ip;
     proxyReqOpts.headers['x-forwarded-proto'] = srcReq.protocol;
     proxyReqOpts.headers['x-forwarded-host'] = srcReq.get('host');
+    proxyReqOpts.headers['Content-Type'] = 'application/json';
     return proxyReqOpts;
   },
   proxyErrorHandler: handleProxyError,
   parseReqBody: true,
   timeout: parseInt(process.env.PROXY_TIMEOUT) || 30000,
   proxyTimeout: parseInt(process.env.PROXY_TIMEOUT) || 30000,
-  userResDecorator: modifyResponse, // HTML 응답을 JSON으로 변환
   retry: (err, res) => {
     if (err) {
       logger.warn(`프록시 요청 실패, 재시도 중: ${err.message}`);
@@ -128,18 +112,19 @@ const proxyOptions = {
 // 라우트 설정
 app.use('/api/todos', proxy(TODO_SERVICE, {
   ...proxyOptions,
-  proxyReqPathResolver: (req) => req.url 
+  proxyReqPathResolver: (req) => `/api/todos${req.url}`
 }));
 
 app.use('/api/boards', proxy(BOARD_SERVICE, {
   ...proxyOptions,
-  proxyReqPathResolver: (req) => req.url 
+  proxyReqPathResolver: (req) => `/api/boards${req.url}`
 }));
 
 app.use('/api/files', proxy(FILE_SERVICE, {
   ...proxyOptions,
-  proxyReqPathResolver: (req) => req.url ,
-  parseReqBody: false
+  proxyReqPathResolver: (req) => `/api/files${req.url}`,
+  parseReqBody: false,
+  limit: '10mb'
 }));
 
 // 헬스 체크

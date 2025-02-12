@@ -1,10 +1,10 @@
-import api from '../axios';
+import axios from 'axios';
 
 const fileService = {
   // 모든 파일 목록 조회
   getAllFiles: async (params = {}) => {
     try {
-      const response = await api.get('/files', { params });
+      const response = await axios.get('/api/files', { params });
       return response.data;
     } catch (error) {
       throw new Error('파일 목록을 불러오는데 실패했습니다.');
@@ -14,7 +14,7 @@ const fileService = {
   // 특정 파일 정보 조회
   getFileById: async (id) => {
     try {
-      const response = await api.get(`/files/${id}`);
+      const response = await axios.get(`/api/files/${id}`);
       return response.data;
     } catch (error) {
       throw new Error('파일 정보를 불러오는데 실패했습니다.');
@@ -24,7 +24,7 @@ const fileService = {
   // 파일 업로드
   uploadFile: async (formData) => {
     try {
-      const response = await api.post('/files', formData, {
+      const response = await axios.post('api/files', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -38,7 +38,7 @@ const fileService = {
   // 파일 삭제
   deleteFile: async (id) => {
     try {
-      const response = await api.delete(`/files/${id}`);
+      const response = await axios.delete(`api/files/${id}`);
       return response.data;
     } catch (error) {
       throw new Error('파일 삭제에 실패했습니다.');
@@ -48,7 +48,7 @@ const fileService = {
   // 파일 다운로드
   downloadFile: async (id) => {
     try {
-      const response = await api.get(`/files/${id}/download`, {
+      const response = await axios.get(`api/files/${id}/download`, {
         responseType: 'blob',
       });
       return response;
@@ -60,7 +60,7 @@ const fileService = {
   // 카테고리별 파일 조회
   getFilesByCategory: async (category) => {
     try {
-      const response = await api.get('/files', {
+      const response = await axios.get('api/files', {
         params: { category },
       });
       return response.data;
@@ -72,7 +72,7 @@ const fileService = {
   // 파일 정보 업데이트
   updateFileInfo: async (id, fileData) => {
     try {
-      const response = await api.put(`/files/${id}`, fileData);
+      const response = await axios.put(`api/files/${id}`, fileData);
       return response.data;
     } catch (error) {
       throw new Error('파일 정보 업데이트에 실패했습니다.');

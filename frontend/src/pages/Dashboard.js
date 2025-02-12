@@ -10,7 +10,6 @@ import {
   ExclamationIcon,
 } from '@heroicons/react/outline';
 import axios from 'axios';
-import api from '../api/axios';  // 기존 axios 대신 API Gateway를 사용하도록 변경
 
 function Dashboard() {
   const [stats, setStats] = useState({
@@ -38,15 +37,19 @@ function Dashboard() {
   const fetchStats = async () => {
     try {
       const [todosRes, boardsRes, filesRes] = await Promise.all([
-        api.get('/todos'),  // 변경된 API 호출 방식
-        api.get('/boards'),
-        api.get('/files'),
+        axios.get(`/api/todos`),
+        axios.get(`/api/boards`),
+        axios.get(`/api/files`),
       ]);
-
-      const todos = todosRes.data;
-      const boards = boardsRes.data;
-      const files = filesRes.data;
-
+  
+      console.log('Todos Response:', todosRes);
+      console.log('Boards Response:', boardsRes);
+      console.log('Files Response:', filesRes);
+  
+      const todos = todosRes?.data || [];
+      const boards = boardsRes?.data || [];
+      const files = filesRes?.data || [];
+  
       setStats({
         todos: {
           total: todos.length,
@@ -71,7 +74,7 @@ function Dashboard() {
         },
       });
     } catch (error) {
-      console.error('통계 정보를 불러오는데 실패했습니다:', error);
+      console.error('통계 정보를 불러오는데 실패했습니다:', error); // 에러 핸들링
     }
   };
 
